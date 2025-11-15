@@ -25,14 +25,14 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
           <div className="flex items-center">
             <button
               onClick={onMenuClick}
-              className="md:hidden p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              className="md:hidden p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500"
             >
               <Menu className="h-6 w-6 text-gray-600" />
             </button>
 
             <div className="ml-2 md:ml-0">
               <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
                   <span className="text-2xl font-bold text-white">LUME</span>
                 </div>
                 <div className="ml-3 hidden sm:block">
@@ -61,7 +61,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                 {/* Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className="flex items-center text-gray-600 hover:text-blue-600 focus:outline-none transition-colors duration-200"
+                  className="flex items-center text-gray-600 hover:text-purple-600 focus:outline-none transition-colors duration-200"
                   title="Sair"
                 >
                   <LogOut className="h-5 w-5" />

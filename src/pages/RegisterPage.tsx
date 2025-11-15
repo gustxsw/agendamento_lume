@@ -136,11 +136,11 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="max-w-3xl w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-blue-100">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-purple-100">
           <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl font-bold text-white">LUME</span>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -149,8 +149,8 @@ const RegisterPage: React.FC = () => {
             <p className="text-gray-600">
               Inicie seu teste grátis de 3 dias agora mesmo
             </p>
-            <div className="mt-4 inline-block bg-blue-50 px-4 py-2 rounded-lg">
-              <p className="text-sm text-blue-700 font-medium">
+            <div className="mt-4 inline-block bg-purple-50 px-4 py-2 rounded-lg">
+              <p className="text-sm text-purple-700 font-medium">
                 Apenas R$ 19,99/mês após o período de teste
               </p>
             </div>
@@ -159,7 +159,7 @@ const RegisterPage: React.FC = () => {
           <div className="mb-6">
             <Link
               to="/"
-              className="inline-flex items-center text-blue-600 hover:text-blue-700 transition-colors"
+              className="inline-flex items-center text-purple-600 hover:text-purple-700 transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar para o login
@@ -175,7 +175,7 @@ const RegisterPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <UserPlus className="h-5 w-5 mr-2 text-blue-600" />
+                <UserPlus className="h-5 w-5 mr-2 text-purple-600" />
                 Informações Pessoais
               </h3>
 
@@ -231,7 +231,7 @@ const RegisterPage: React.FC = () => {
 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Briefcase className="h-5 w-5 mr-2 text-blue-600" />
+                <Briefcase className="h-5 w-5 mr-2 text-purple-600" />
                 Informações Profissionais
               </h3>
 
@@ -395,9 +395,9 @@ const RegisterPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-              <h4 className="font-semibold text-blue-900 mb-2">O que você ganha:</h4>
-              <ul className="space-y-1 text-sm text-blue-800">
+            <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
+              <h4 className="font-semibold text-purple-900 mb-2">O que você ganha:</h4>
+              <ul className="space-y-1 text-sm text-purple-800">
                 <li>✓ 3 dias de teste grátis</li>
                 <li>✓ Gestão completa de pacientes e consultas</li>
                 <li>✓ Agendamento online</li>
@@ -410,7 +410,7 @@ const RegisterPage: React.FC = () => {
             <div className="pt-6">
               <button
                 type="submit"
-                className={`w-full btn bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 ${
+                className={`w-full btn bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 ${
                   isLoading ? "opacity-70 cursor-not-allowed" : ""
                 }`}
                 disabled={isLoading}
@@ -424,7 +424,7 @@ const RegisterPage: React.FC = () => {
                 Já possui uma conta?{" "}
                 <Link
                   to="/"
-                  className="text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-purple-600 hover:text-purple-700 font-medium"
                 >
                   Fazer login
                 </Link>

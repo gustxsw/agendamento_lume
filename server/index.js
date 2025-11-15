@@ -526,6 +526,32 @@ const initializeDatabase = async () => {
       )
     `);
 
+    // LUME SaaS Tables - Professional subscriptions
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lume_professionals (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        specialty VARCHAR(255) NOT NULL,
+        registration_number VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lume_subscriptions (
+        id SERIAL PRIMARY KEY,
+        professional_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(20) DEFAULT 'trial',
+        trial_ends_at TIMESTAMP NOT NULL,
+        current_period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        current_period_end TIMESTAMP NOT NULL,
+        cancelled_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT lume_subscriptions_status_check CHECK (status IN ('trial', 'active', 'cancelled', 'expired'))
+      )
+    `);
+
     // Notifications table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS notifications (
@@ -740,137 +766,150 @@ const getProductionUrls = () => {
 
 // ===== AUTHENTICATION ROUTES =====
 
+// LUME Professional Registration
 app.post("/api/auth/register", async (req, res) => {
   try {
     const {
       name,
-      cpf,
       email,
+      password,
       phone,
-      birth_date,
-      address,
-      address_number,
-      address_complement,
-      neighborhood,
       city,
       state,
-      password,
+      specialty,
+      registration_number,
     } = req.body;
 
-    console.log("🔄 Registration attempt for CPF:", cpf);
+    console.log("🔄 LUME Professional registration for:", email);
 
     // Validate required fields
-    if (!name || !cpf || !password) {
-      return res
-        .status(400)
-        .json({ message: "Nome, CPF e senha são obrigatórios" });
+    if (!name || !email || !password || !phone || !city || !state || !specialty || !registration_number) {
+      return res.status(400).json({ message: "Todos os campos são obrigatórios" });
     }
 
-    // Validate CPF format
-    if (!validateCPF(cpf)) {
-      return res.status(400).json({ message: "CPF inválido" });
-    }
-
-    // Validate email if provided
-    if (email && !validateEmail(email)) {
+    // Validate email
+    if (!validateEmail(email)) {
       return res.status(400).json({ message: "Email inválido" });
     }
 
-    // Validate password length
+    // Validate password
     if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ message: "Senha deve ter pelo menos 6 caracteres" });
+      return res.status(400).json({ message: "Senha deve ter pelo menos 6 caracteres" });
     }
 
-    const cleanCPF = cpf.replace(/\D/g, "");
-
-    // Check if user already exists
+    // Check if email already exists
     const existingUser = await pool.query(
-      "SELECT id FROM users WHERE cpf = $1",
-      [cleanCPF]
+      "SELECT id FROM users WHERE email = $1",
+      [email]
     );
     if (existingUser.rows.length > 0) {
-      return res.status(409).json({ message: "CPF já cadastrado" });
+      return res.status(409).json({ message: "Email já cadastrado" });
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Generate temporary CPF for system compatibility
+    const tempCPF = `999${Date.now().toString().slice(-8)}`;
+
+    // Create user with professional role
     const userResult = await pool.query(
-      `
-      INSERT INTO users (
-        name, cpf, email, phone, birth_date, address, address_number, 
-        address_complement, neighborhood, city, state, password, roles
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING id, name, cpf, email, roles, subscription_status
-    `,
-      [
-        name.trim(),
-        cleanCPF,
-        email?.trim() || null,
-        phone?.replace(/\D/g, "") || null,
-        birth_date || null,
-        address?.trim() || null,
-        address_number?.trim() || null,
-        address_complement?.trim() || null,
-        neighborhood?.trim() || null,
-        city?.trim() || null,
-        state || null,
-        hashedPassword,
-        ["client"],
-      ]
+      `INSERT INTO users (
+        name, cpf, email, phone, city, state, password, roles
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, name, email, phone, city, state, roles`,
+      [name.trim(), tempCPF, email.trim(), phone, city, state, hashedPassword, ['professional']]
     );
 
     const user = userResult.rows[0];
 
-    console.log("✅ User registered successfully:", user.id);
+    // Create professional record
+    await pool.query(
+      `INSERT INTO lume_professionals (user_id, specialty, registration_number)
+       VALUES ($1, $2, $3)`,
+      [user.id, specialty, registration_number]
+    );
+
+    // Create trial subscription (3 days)
+    const trialEnds = new Date();
+    trialEnds.setDate(trialEnds.getDate() + 3);
+
+    await pool.query(
+      `INSERT INTO lume_subscriptions (
+        professional_id, status, trial_ends_at, current_period_end
+      ) VALUES ($1, $2, $3, $3)`,
+      [user.id, 'trial', trialEnds]
+    );
+
+    console.log("✅ LUME Professional registered:", user.id);
+
+    // Generate JWT
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: 'professional' },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(201).json({
-      message: "Usuário criado com sucesso",
+      message: "Profissional cadastrado com sucesso",
+      token,
       user: {
         id: user.id,
         name: user.name,
-        roles: user.roles,
-        subscription_status: user.subscription_status,
+        email: user.email,
+        role: 'professional',
       },
     });
   } catch (error) {
     console.error("❌ Registration error:", error);
-    res.status(500).json({ message: "Erro interno do servidor" });
+    res.status(500).json({ message: "Erro ao criar conta" });
   }
 });
 
+// LUME Login - Supports both CPF and Email
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { cpf, password } = req.body;
+    const { cpf, email, password } = req.body;
+    const loginIdentifier = email || cpf;
 
-    console.log("🔄 Login attempt for CPF:", cpf);
+    console.log("🔄 LUME Login attempt for:", loginIdentifier);
 
-    if (!cpf || !password) {
-      return res.status(400).json({ message: "CPF e senha são obrigatórios" });
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({ message: "Email/CPF e senha são obrigatórios" });
     }
 
-    if (!validateCPF(cpf)) {
-      return res.status(400).json({ message: "CPF inválido" });
+    let query, params;
+
+    if (email) {
+      query = `SELECT u.*,
+                      lp.specialty, lp.registration_number,
+                      ls.status as subscription_status, ls.trial_ends_at,
+                      ls.current_period_end, ls.cancelled_at
+               FROM users u
+               LEFT JOIN lume_professionals lp ON u.id = lp.user_id
+               LEFT JOIN lume_subscriptions ls ON u.id = ls.professional_id
+               WHERE u.email = $1`;
+      params = [email];
+    } else {
+      const cleanCPF = cpf.replace(/\D/g, "");
+      if (!validateCPF(cleanCPF)) {
+        return res.status(400).json({ message: "CPF inválido" });
+      }
+      query = `SELECT * FROM users WHERE cpf = $1`;
+      params = [cleanCPF];
     }
 
-    const cleanCPF = cpf.replace(/\D/g, "");
-
-    // Find user by CPF
-    const userResult = await pool.query(
-      `
-      SELECT id, name, cpf, email, password, roles, subscription_status, subscription_expiry
-      FROM users 
-      WHERE cpf = $1
-    `,
-      [cleanCPF]
-    );
+    const userResult = await pool.query(query, params);
 
     if (userResult.rows.length === 0) {
-      console.log("❌ User not found for CPF:", cleanCPF);
-      return res.status(401).json({ message: "CPF ou senha incorretos" });
+      return res.status(401).json({ message: "Credenciais inválidas" });
     }
 
     const user = userResult.rows[0];
@@ -878,29 +917,70 @@ app.post("/api/auth/login", async (req, res) => {
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      console.log("❌ Invalid password for user:", user.id);
-      return res.status(401).json({ message: "CPF ou senha incorretos" });
+      return res.status(401).json({ message: "Credenciais inválidas" });
+    }
+
+    // Check subscription status for professionals
+    let hasActiveSubscription = true;
+    if (user.roles.includes('professional')) {
+      const now = new Date();
+      if (user.subscription_status === 'trial') {
+        hasActiveSubscription = new Date(user.trial_ends_at) > now;
+        if (!hasActiveSubscription) {
+          await pool.query(
+            `UPDATE lume_subscriptions SET status = 'expired' WHERE professional_id = $1`,
+            [user.id]
+          );
+        }
+      } else if (user.subscription_status === 'active') {
+        hasActiveSubscription = new Date(user.current_period_end) > now;
+        if (!hasActiveSubscription) {
+          await pool.query(
+            `UPDATE lume_subscriptions SET status = 'expired' WHERE professional_id = $1`,
+            [user.id]
+          );
+        }
+      } else {
+        hasActiveSubscription = false;
+      }
     }
 
     console.log("✅ Login successful for user:", user.id);
-    console.log("🎯 User roles:", user.roles);
 
-    // Return user data without password
+    // Generate JWT
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.roles[0] },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     const userData = {
       id: user.id,
       name: user.name,
-      roles: user.roles,
-      subscription_status: user.subscription_status,
-      subscription_expiry: user.subscription_expiry,
+      email: user.email,
+      role: user.roles[0],
+      subscription: user.subscription_status ? {
+        status: hasActiveSubscription ? user.subscription_status : 'expired',
+        trial_ends_at: user.trial_ends_at,
+        current_period_end: user.current_period_end,
+      } : null,
     };
 
     res.json({
       message: "Login realizado com sucesso",
+      token,
       user: userData,
     });
   } catch (error) {
     console.error("❌ Login error:", error);
-    res.status(500).json({ message: "Erro interno do servidor" });
+    res.status(500).json({ message: "Erro ao fazer login" });
   }
 });
 

@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import type { Professional, Subscription } from "../lib/supabase";
 
 type User = {
-  id: string;
+  id: number;
   email: string;
+  name: string;
   role: 'professional' | 'admin';
-  professional?: Professional;
-  subscription?: Subscription;
+  subscription?: {
+    status: 'trial' | 'active' | 'expired' | 'cancelled';
+    trial_ends_at?: string;
+    current_period_end?: string;
+  };
 };
 
 type AuthContextType = {
@@ -20,7 +22,6 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
-  refreshSubscription: () => Promise<void>;
 };
 
 type RegisterData = {
@@ -43,160 +44,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  const checkSubscriptionStatus = async (professionalId: string): Promise<Subscription | undefined> => {
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('professional_id', professionalId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!subscription) return undefined;
-
-    const now = new Date();
-    const trialEnds = new Date(subscription.trial_ends_at);
-    const periodEnds = new Date(subscription.current_period_end);
-
-    if (subscription.status === 'trial' && trialEnds < now) {
-      await supabase
-        .from('subscriptions')
-        .update({ status: 'expired' })
-        .eq('id', subscription.id);
-      return { ...subscription, status: 'expired' };
+  const getApiUrl = () => {
+    if (
+      window.location.hostname === "cartaoquiroferreira.com.br" ||
+      window.location.hostname === "www.cartaoquiroferreira.com.br"
+    ) {
+      return "https://www.cartaoquiroferreira.com.br";
     }
-
-    if (subscription.status === 'active' && periodEnds < now) {
-      await supabase
-        .from('subscriptions')
-        .update({ status: 'expired' })
-        .eq('id', subscription.id);
-      return { ...subscription, status: 'expired' };
-    }
-
-    return subscription;
-  };
-
-  const loadUserData = async (authUserId: string) => {
-    const { data: adminData } = await supabase
-      .from('admins')
-      .select('*')
-      .eq('auth_user_id', authUserId)
-      .maybeSingle();
-
-    if (adminData) {
-      const { data: authUser } = await supabase.auth.getUser();
-      setUser({
-        id: authUserId,
-        email: authUser.user?.email || adminData.email,
-        role: 'admin',
-      });
-      return;
-    }
-
-    const { data: professional } = await supabase
-      .from('professionals')
-      .select('*')
-      .eq('auth_user_id', authUserId)
-      .maybeSingle();
-
-    if (professional) {
-      const subscription = await checkSubscriptionStatus(professional.id);
-      const { data: authUser } = await supabase.auth.getUser();
-
-      setUser({
-        id: authUserId,
-        email: authUser.user?.email || professional.email,
-        role: 'professional',
-        professional,
-        subscription,
-      });
-    }
+    return "http://localhost:3001";
   };
 
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const token = localStorage.getItem("token");
+        const userData = localStorage.getItem("user");
 
-        if (session?.user) {
-          await loadUserData(session.user.id);
+        if (token && userData) {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
         }
       } catch (error) {
         console.error("Auth check error:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAuthStatus();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          await loadUserData(session.user.id);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const register = async (data: RegisterData) => {
     try {
       setIsLoading(true);
 
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/api/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+        credentials: "include",
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Erro ao criar usuário');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao criar conta");
+      }
 
-      const { error: professionalError } = await supabase
-        .from('professionals')
-        .insert({
-          auth_user_id: authData.user.id,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          city: data.city,
-          state: data.state,
-          specialty: data.specialty,
-          registration_number: data.registration_number,
-        });
+      const responseData = await response.json();
 
-      if (professionalError) throw professionalError;
+      localStorage.setItem("token", responseData.token);
+      localStorage.setItem("user", JSON.stringify(responseData.user));
 
-      const { data: professional } = await supabase
-        .from('professionals')
-        .select('*')
-        .eq('auth_user_id', authData.user.id)
-        .single();
-
-      if (!professional) throw new Error('Erro ao carregar dados do profissional');
-
-      const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 3);
-
-      const { error: subscriptionError } = await supabase
-        .from('subscriptions')
-        .insert({
-          professional_id: professional.id,
-          status: 'trial',
-          trial_ends_at: trialEndsAt.toISOString(),
-          current_period_start: new Date().toISOString(),
-          current_period_end: trialEndsAt.toISOString(),
-        });
-
-      if (subscriptionError) throw subscriptionError;
-
-      await loadUserData(authData.user.id);
+      setUser(responseData.user);
       navigate('/professional');
     } catch (error) {
       console.error("Registration error:", error);
@@ -210,23 +114,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
       });
 
-      if (error) throw error;
-      if (!data.user) throw new Error('Erro ao fazer login');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao fazer login");
+      }
 
-      await loadUserData(data.user.id);
+      const data = await response.json();
 
-      const { data: adminCheck } = await supabase
-        .from('admins')
-        .select('id')
-        .eq('auth_user_id', data.user.id)
-        .maybeSingle();
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-      if (adminCheck) {
+      setUser(data.user);
+
+      if (data.user.role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/professional');
@@ -242,20 +152,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = async () => {
     try {
       setIsLoading(true);
-      await supabase.auth.signOut();
+
+      const apiUrl = getApiUrl();
+      await fetch(`${apiUrl}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
       setUser(null);
       navigate('/');
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const refreshSubscription = async () => {
-    if (user?.professional) {
-      const subscription = await checkSubscriptionStatus(user.professional.id);
-      setUser({ ...user, subscription });
     }
   };
 
@@ -274,7 +186,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     login,
     register,
     logout,
-    refreshSubscription,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

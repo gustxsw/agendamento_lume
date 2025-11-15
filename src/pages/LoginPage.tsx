@@ -42,11 +42,11 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-blue-100">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-purple-100">
           <div className="text-center mb-8">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <span className="text-4xl font-bold text-white">LUME</span>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -109,7 +109,7 @@ const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              className={`w-full btn bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 flex items-center justify-center ${
+              className={`w-full btn bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 flex items-center justify-center ${
                 isLoading ? "opacity-70 cursor-not-allowed" : ""
               }`}
               disabled={isLoading}
@@ -126,7 +126,7 @@ const LoginPage: React.FC = () => {
               </p>
               <Link
                 to="/register"
-                className="inline-flex items-center justify-center w-full btn bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+                className="inline-flex items-center justify-center w-full btn bg-white border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
               >
                 <UserPlus className="h-5 w-5 mr-2" />
                 Criar Conta Grátis
