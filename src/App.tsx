@@ -2,17 +2,12 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 
-// Layouts
 import MainLayout from "./layouts/MainLayout";
 import AuthLayout from "./layouts/AuthLayout";
 
-// Pages
 import LoginPage from "./pages/LoginPage";
-import RoleSelectionPage from "./pages/RoleSelectionPage";
 import RegisterPage from "./pages/RegisterPage";
 import MaintenancePage from "./pages/MaintenancePage";
-import ClientHomePage from "./pages/client/ClientHomePage";
-import ProfessionalsPage from "./pages/client/ProfessionalsPage";
 import ProfessionalHomePage from "./pages/professional/ProfessionalHomePage";
 import RegisterConsultationPage from "./pages/professional/RegisterConsultationPage";
 import SchedulingPage from "./pages/professional/SchedulingPage";
@@ -23,11 +18,8 @@ import ProfessionalReportsPage from "./pages/professional/ProfessionalReportsPag
 import ProfessionalProfilePage from "./pages/professional/ProfessionalProfilePage";
 import AdminHomePage from "./pages/admin/AdminHomePage";
 import ManageUsersPage from "./pages/admin/ManageUsersPage";
-import ManageServicesPage from "./pages/admin/ManageServicesPage";
-import ManageSchedulingAccessPage from "./pages/admin/ManageSchedulingAccessPage";
-import ReportsPage from "./pages/admin/ReportsPage";
+import SubscriptionExpiredPage from "./pages/SubscriptionExpiredPage";
 
-// Route guards
 const ProtectedRoute = ({
   children,
   allowedRoles,
@@ -35,23 +27,20 @@ const ProtectedRoute = ({
   children: React.ReactNode;
   allowedRoles: string[];
 }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, hasActiveSubscription } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
-  if (
-    allowedRoles.length > 0 &&
-    user &&
-    !allowedRoles.includes(user.currentRole || "")
-  ) {
-    // Redirect to appropriate home page based on current role
-    if (user.currentRole === "client") {
-      return <Navigate to="/client" replace />;
-    } else if (user.currentRole === "professional") {
+  if (user?.role === 'professional' && !hasActiveSubscription) {
+    return <Navigate to="/subscription-expired" replace />;
+  }
+
+  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
+    if (user.role === 'professional') {
       return <Navigate to="/professional" replace />;
-    } else if (user.currentRole === "admin") {
+    } else if (user.role === 'admin') {
       return <Navigate to="/admin" replace />;
     }
   }
@@ -62,12 +51,14 @@ const ProtectedRoute = ({
 function App() {
   const { user, isAuthenticated, isLoading } = useAuth();
 
-  // Show loading while checking authentication
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl font-bold text-white">LUME</span>
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Carregando...</p>
         </div>
       </div>
@@ -76,31 +67,14 @@ function App() {
 
   return (
     <Routes>
-      {/* 🔧 MAINTENANCE ROUTE - ACCESSIBLE WITHOUT LOGIN */}
       <Route path="/manutencao" element={<MaintenancePage />} />
-      
-      {/* 🔥 ROOT ROUTE - SEMPRE LOGIN */}
       <Route path="/" element={<LoginPage />} />
+      <Route path="/subscription-expired" element={<SubscriptionExpiredPage />} />
 
-      {/* Auth routes */}
       <Route element={<AuthLayout />}>
-        <Route path="/select-role" element={<RoleSelectionPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
 
-      {/* Client routes */}
-      <Route
-        element={
-          <ProtectedRoute allowedRoles={["client"]}>
-            <MainLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/client" element={<ClientHomePage />} />
-        <Route path="/client/professionals" element={<ProfessionalsPage />} />
-      </Route>
-
-      {/* Professional routes */}
       <Route
         element={
           <ProtectedRoute allowedRoles={["professional"]}>
@@ -121,7 +95,6 @@ function App() {
         />
       </Route>
 
-      {/* Admin routes */}
       <Route
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
@@ -130,13 +103,9 @@ function App() {
         }
       >
         <Route path="/admin" element={<AdminHomePage />} />
-        <Route path="/admin/users" element={<ManageUsersPage />} />
-        <Route path="/admin/services" element={<ManageServicesPage />} />
-        <Route path="/admin/scheduling-access" element={<ManageSchedulingAccessPage />} />
-        <Route path="/admin/reports" element={<ReportsPage />} />
+        <Route path="/admin/professionals" element={<ManageUsersPage />} />
       </Route>
 
-      {/* 🔥 CATCH-ALL - QUALQUER ROTA DESCONHECIDA VAI PARA LOGIN */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

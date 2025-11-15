@@ -2,7 +2,6 @@ import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { LogOut, User, Menu } from "lucide-react";
-import RoleSwitcher from "./RoleSwitcher";
 
 type NavbarProps = {
   onMenuClick: () => void;
@@ -26,38 +25,43 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
           <div className="flex items-center">
             <button
               onClick={onMenuClick}
-              className="md:hidden p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500"
+              className="md:hidden p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
             >
               <Menu className="h-6 w-6 text-gray-600" />
             </button>
 
-            {/* Logo sem link - não clicável */}
             <div className="ml-2 md:ml-0">
-              <img
-                src="/logo_quiroferreira.svg"
-                alt="Logo Quiro Ferreira"
-                className="h-24 w-auto"
-                style={{ maxHeight: "100px" }}
-              />
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl font-bold text-white">LUME</span>
+                </div>
+                <div className="ml-3 hidden sm:block">
+                  <h1 className="text-xl font-bold text-gray-900">LUME</h1>
+                  <p className="text-xs text-gray-500">Gestão Profissional</p>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center space-x-4">
             {user && (
               <>
-                {/* Role Switcher */}
-                <RoleSwitcher />
-
-                {/* User Info */}
                 <div className="hidden sm:flex items-center mr-4">
                   <User className="h-5 w-5 mr-2 text-gray-600" />
-                  <span className="font-medium text-gray-800">{user.name}</span>
+                  <div>
+                    <p className="font-medium text-gray-800">{user.email}</p>
+                    {user.role === 'professional' && user.subscription && (
+                      <p className="text-xs text-gray-500">
+                        {user.subscription.status === 'trial' ? 'Período de teste' : 'Assinatura ativa'}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className="flex items-center text-gray-600 hover:text-red-600 focus:outline-none transition-colors duration-200"
+                  className="flex items-center text-gray-600 hover:text-blue-600 focus:outline-none transition-colors duration-200"
                   title="Sair"
                 >
                   <LogOut className="h-5 w-5" />
